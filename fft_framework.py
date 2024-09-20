@@ -1,5 +1,7 @@
 import torch
+from torchvision import transforms
 from einops import rearrange
+from PIL import Image
 
 
 class simpDiff:
@@ -10,6 +12,7 @@ class simpDiff:
         self.image_size = image_size
         self.slice_points = slice_points
         self.max_t = len(self.get_masks(torch.tensor([width])))
+        self.fund_freq = fund_freq = transforms.ToTensor()(Image.open("fund_freq.png"))
 
     def slice_mask(self, slice_num):
         h, w = self.image_size
@@ -137,7 +140,7 @@ class simpDiff:
         # init_freq = torch.zeros(6, h, width)
         # init_freq[:3, h//2, 0] = torch.randn(3) * 400
         # init_freq = rearrange(init_freq, 'c h w -> 1 1 (c h w)').to(self.device)
-        init_freq = self.to_fft(testset[0][0].unsqueeze(0), torch.tensor([1]))
+        init_freq = self.to_fft(self.fund_freq.unsqueeze(0), torch.tensor([1]))
 
         seq = torch.empty(1, 0, 3 * 2 * h * width).to(device)
         seq = torch.cat([seq, init_freq], axis=-2)
@@ -158,9 +161,9 @@ class simpDiff:
         width = w // 2 + 1
 
         # init_freq = torch.zeros(6, h, width)
-        # init_freq[:3, h//2, 0] = torch.randn(3) * 400
+        # init_freq[:3, h//2, 0] = torch.randn(3)
         # init_freq = rearrange(init_freq, 'c h w -> 1 1 (c h w)').to(self.device)
-        init_freq = self.to_fft(testset[0][0].unsqueeze(0), torch.tensor([1]))
+        init_freq = self.to_fft(self.fund_freq.unsqueeze(0), torch.tensor([1]))
 
         seq = torch.empty(1, 0, 3 * 2 * h * width).to(device)
         seq = torch.cat([seq, init_freq], axis=-2)
