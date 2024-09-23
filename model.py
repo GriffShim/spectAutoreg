@@ -1,5 +1,6 @@
+import torch
 import torch.nn as nn
-from attention import AdaLnTransformer
+from attention import AdaLnTransformer, Transformer
 from fft_framework import simpDiff
 
 class penis_net(nn.Module):

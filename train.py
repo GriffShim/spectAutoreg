@@ -11,48 +11,68 @@ import torch.distributed as dist
 
 
 def get_dataloaders(rank, world_size, epoch):
-    # Load CIFAR
+    # Define the transformations
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.CenterCrop(31)
         # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
-    # Download and load the training set
+    dataset_root = './data'  # Common dataset path
+
+    # Only rank 0 downloads the dataset
+    if rank == 0:
+        datasets.CIFAR10(
+            root=dataset_root, 
+            train=True, 
+            download=True, 
+            transform=transform
+        )
+        datasets.CIFAR10(
+            root=dataset_root, 
+            train=False, 
+            download=True, 
+            transform=transform
+        )
+
+    # Ensure all ranks wait for rank 0 to finish downloading
+    dist.barrier()
+
+    # Load the training set for all ranks
     trainset = datasets.CIFAR10(
-        root='./data',  # directory where data will be saved
-        train=True,  # download the training set
-        download=True,  # download the data if it's not already available
-        transform=transform  # apply the transformations
+        root=dataset_root, 
+        train=True, 
+        download=False,  # No download for other ranks
+        transform=transform
     )
 
     sampler = DistributedSampler(trainset, num_replicas=world_size, rank=rank, shuffle=True)
     sampler.set_epoch(epoch)
 
-    trainloader = torch.utils.data.DataLoader(
+    trainloader = DataLoader(
         trainset,
-        batch_size=64,  # number of images to load at each iteration
-        shuffle=False,  # shuffle the data at every epoch
-        num_workers=2,  # number of subprocesses to use for data loading
+        batch_size=64, 
+        shuffle=False,  # Shuffling is handled by the DistributedSampler
+        num_workers=2, 
         sampler=sampler
     )
 
-    # Download and load the test set
+    # Load the test set for all ranks
     testset = datasets.CIFAR10(
-        root='./data',  # directory where data will be saved
-        train=False,  # download the test set
-        download=True,  # download the data if it's not already available
-        transform=transform  # apply the transformations
+        root=dataset_root, 
+        train=False, 
+        download=False,  # No download for other ranks
+        transform=transform
     )
 
-    testloader = torch.utils.data.DataLoader(
+    testloader = DataLoader(
         testset,
-        batch_size=64,  # number of images to load at each iteration
-        shuffle=False,  # do not shuffle the test data
-        num_workers=2,  # number of subprocesses to use for data loading
+        batch_size=64, 
+        shuffle=False, 
+        num_workers=2
     )
 
-    # Define the classes
+    # Define the CIFAR-10 classes
     classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     return trainloader, testloader, classes
@@ -156,8 +176,9 @@ def train(model, num_epochs, run_name, rank, world_size):
             model.train()
 
         epoch_loss = running_loss / len(trainloader)
-        print(running_loss / (idx + 1))
-        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss:.4f}")
+        if rank == 0:
+            print(running_loss / (idx + 1))
+            print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss:.4f}")
 
 
 if __name__ == '__main__':

@@ -16,9 +16,13 @@ def cleanup():
     dist.destroy_process_group()
 
 def main():
-    model = adaptive_penis_net(img_size=(31, 31), num_classes=11, hidden_dim=1024, slice_points=[1, 3, 8, 16]).cuda()
-    NUM_EPOCHS = 1000
     rank, world_size = setup()
+    NUM_EPOCHS = 1000
+    model = adaptive_penis_net(img_size=(31, 31), num_classes=11, hidden_dim=1024, slice_points=[1, 3, 8, 16]).cuda()
+
+    state_dict = torch.load('/home/ubuntu/logs/realSpiel/model_40.pt', map_location=torch.device('cuda'))
+    model.load_state_dict(state_dict)
+
     train(model, NUM_EPOCHS, "realSpiel", rank, world_size)
     cleanup()
 

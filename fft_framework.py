@@ -177,11 +177,13 @@ class simpDiff:
             pred = model(seq, c.to(device))[:, -1, :].unsqueeze(1)
             pred_w = model(seq, torch.tensor([10]).to(device))[:, -1, :].unsqueeze(1)
             pred = (1 + omega) * pred - omega * pred_w
+            if i < 5:
+                pred = pred * 0.8 + 0.2 * torch.randn_like(pred)
             pred = rearrange(pred, "b s (c h w) -> b s c h w", c=6, h=h, w=width)
             pred = pred * masks[i]
             pred = rearrange(pred, "b s c h w -> b s (c h w)")
             seq = torch.cat([seq, pred], axis=-2)
-            print(f"{i}/{self.max_t} steps done")
+            print(f"On step {i} / {self.max_t}")
         real, imag = torch.chunk(seq, 2, axis=-1)
         out = torch.complex(real, imag)
         image = self.from_fft(out)
