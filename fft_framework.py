@@ -12,7 +12,7 @@ class simpDiff:
         self.image_size = image_size
         self.slice_points = slice_points
         self.max_t = len(self.get_masks(torch.tensor([width])))
-        self.fund_freq = fund_freq = transforms.ToTensor()(Image.open("fund_freq.png"))
+        self.fund_freq = fund_freq = transforms.ToTensor()(Image.open("fund_freq_2.png"))
 
     def slice_mask(self, slice_num):
         h, w = self.image_size
@@ -164,21 +164,24 @@ class simpDiff:
         # init_freq[:3, h//2, 0] = torch.randn(3)
         # init_freq = rearrange(init_freq, 'c h w -> 1 1 (c h w)').to(self.device)
         init_freq = self.to_fft(self.fund_freq.unsqueeze(0), torch.tensor([1]))
+        if len(c) > 1:
+            init_freq = init_freq.repeat(len(c), 1, 1)
 
-        seq = torch.empty(1, 0, 3 * 2 * h * width).to(device)
+        seq = torch.empty(len(c), 0, 3 * 2 * h * width).to(device)
         seq = torch.cat([seq, init_freq], axis=-2)
 
         # Create filter masks
         masks = self.get_masks(torch.tensor([16]))
 
         for i in range(self.max_t):
-            pred = model(seq, c.to(device))[:, -1, :].unsqueeze(0)
-            pred_w = model(seq, torch.tensor([10]).to(device))[:, -1, :].unsqueeze(0)
+            pred = model(seq, c.to(device))[:, -1, :].unsqueeze(1)
+            pred_w = model(seq, torch.tensor([10]).to(device))[:, -1, :].unsqueeze(1)
             pred = (1 + omega) * pred - omega * pred_w
             pred = rearrange(pred, "b s (c h w) -> b s c h w", c=6, h=h, w=width)
             pred = pred * masks[i]
             pred = rearrange(pred, "b s c h w -> b s (c h w)")
             seq = torch.cat([seq, pred], axis=-2)
+            print(f"{i}/{self.max_t} steps done")
         real, imag = torch.chunk(seq, 2, axis=-1)
         out = torch.complex(real, imag)
         image = self.from_fft(out)
